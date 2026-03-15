@@ -238,6 +238,25 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     supportsMultipleAccounts: true,
   },
   {
+    id: 'local-llama',
+    name: '本地推理',
+    icon: '💻',
+    placeholder: 'Not required',
+    requiresApiKey: false,
+    defaultBaseUrl: 'http://localhost:8080/v1',
+    showBaseUrl: true,
+    showModelId: true,
+    modelIdPlaceholder: 'qwen3.5-0.8b',
+    category: 'local',
+    supportedAuthModes: ['local'],
+    defaultAuthMode: 'local',
+    supportsMultipleAccounts: true,
+    providerConfig: {
+      baseUrl: 'http://localhost:8080/v1',
+      api: 'openai-completions',
+    },
+  },
+  {
     id: 'custom',
     name: 'Custom',
     icon: '⚙️',
@@ -279,6 +298,12 @@ export function getProviderDefaultModel(type: string): string | undefined {
 }
 
 export function getProviderBackendConfig(
+  type: string,
+): ProviderBackendConfig | undefined {
+  return getProviderDefinition(type)?.providerConfig;
+}
+
+export function getSharedProviderConfig(
   type: string,
 ): ProviderBackendConfig | undefined {
   return getProviderDefinition(type)?.providerConfig;

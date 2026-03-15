@@ -238,7 +238,9 @@ export class ProviderService {
   }
 }
 
-const providerService = new ProviderService();
+const providerServiceInstance = new ProviderService();
+
+export const providerService = providerServiceInstance;
 
 export function getProviderService(): ProviderService {
   return providerService;

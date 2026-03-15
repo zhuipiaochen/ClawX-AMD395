@@ -12,6 +12,10 @@ export async function parseJsonBody<T>(req: IncomingMessage): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
+export async function parseBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return parseJsonBody<Record<string, unknown>>(req);
+}
+
 export function setCorsHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');

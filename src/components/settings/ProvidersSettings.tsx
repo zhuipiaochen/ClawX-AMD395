@@ -148,7 +148,7 @@ export function ProvidersSettings() {
         id,
         vendorId: type,
         label: name,
-        authMode: options?.authMode || vendor?.defaultAuthMode || (type === 'ollama' ? 'local' : 'api_key'),
+        authMode: options?.authMode || vendor?.defaultAuthMode || (type === 'ollama' || type === 'local-llama' ? 'local' : 'api_key'),
         baseUrl: options?.baseUrl,
         apiProtocol: options?.apiProtocol,
         model: options?.model,
@@ -355,7 +355,7 @@ function ProviderCard({
         setValidating(true);
         const result = await onValidateKey(newKey, {
           baseUrl: baseUrl.trim() || undefined,
-          apiProtocol: (account.vendorId === 'custom' || account.vendorId === 'ollama') ? apiProtocol : undefined,
+          apiProtocol: (account.vendorId === 'custom' || account.vendorId === 'ollama' || account.vendorId === 'local-llama') ? apiProtocol : undefined,
         });
         setValidating(false);
         if (!result.valid) {
@@ -377,7 +377,7 @@ function ProviderCard({
         if (typeInfo?.showBaseUrl && (baseUrl.trim() || undefined) !== (account.baseUrl || undefined)) {
           updates.baseUrl = baseUrl.trim() || undefined;
         }
-        if ((account.vendorId === 'custom' || account.vendorId === 'ollama') && apiProtocol !== account.apiProtocol) {
+        if ((account.vendorId === 'custom' || account.vendorId === 'ollama' || account.vendorId === 'local-llama') && apiProtocol !== account.apiProtocol) {
           updates.apiProtocol = apiProtocol;
         }
         if (showModelIdField && (modelId.trim() || undefined) !== (account.model || undefined)) {
@@ -396,7 +396,7 @@ function ProviderCard({
 
       // Keep Ollama key optional in UI, but persist a placeholder when
       // editing legacy configs that have no stored key.
-      if (account.vendorId === 'ollama' && !status?.hasKey && !payload.newApiKey) {
+      if ((account.vendorId === 'ollama' || account.vendorId === 'local-llama') && !status?.hasKey && !payload.newApiKey) {
         payload.newApiKey = resolveProviderApiKeyForSave(account.vendorId, '') as string;
       }
 
@@ -678,7 +678,7 @@ function ProviderCard({
                 <div className="relative flex-1">
                   <Input
                     type={showKey ? 'text' : 'password'}
-                    placeholder={typeInfo?.requiresApiKey ? typeInfo?.placeholder : (typeInfo?.id === 'ollama' ? t('aiProviders.notRequired') : t('aiProviders.card.editKey'))}
+                    placeholder={typeInfo?.requiresApiKey ? typeInfo?.placeholder : ((typeInfo?.id === 'ollama' || typeInfo?.id === 'local-llama') ? t('aiProviders.notRequired') : t('aiProviders.card.editKey'))}
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value)}
                     className={cn(currentInputClasses, 'pr-10')}
@@ -990,7 +990,7 @@ function AddProviderDialog({
       if (requiresKey && apiKey) {
         const result = await onValidateKey(selectedType, apiKey, {
           baseUrl: baseUrl.trim() || undefined,
-          apiProtocol: (selectedType === 'custom' || selectedType === 'ollama') ? apiProtocol : undefined,
+          apiProtocol: (selectedType === 'custom' || selectedType === 'ollama' || selectedType === 'local-llama') ? apiProtocol : undefined,
         });
         if (!result.valid) {
           setValidationError(result.error || t('aiProviders.toast.invalidKey'));
@@ -1012,9 +1012,9 @@ function AddProviderDialog({
         apiKey.trim(),
         {
           baseUrl: baseUrl.trim() || undefined,
-          apiProtocol: (selectedType === 'custom' || selectedType === 'ollama') ? apiProtocol : undefined,
+          apiProtocol: (selectedType === 'custom' || selectedType === 'ollama' || selectedType === 'local-llama') ? apiProtocol : undefined,
           model: resolveProviderModelForSave(typeInfo, modelId, devModeUnlocked),
-          authMode: useOAuthFlow ? (preferredOAuthMode || 'oauth_device') : selectedType === 'ollama'
+          authMode: useOAuthFlow ? (preferredOAuthMode || 'oauth_device') : (selectedType === 'ollama' || selectedType === 'local-llama')
             ? 'local'
             : (isOAuth && supportsApiKey && authMode === 'apikey')
               ? 'api_key'
@@ -1167,7 +1167,7 @@ function AddProviderDialog({
                       <Input
                         id="apiKey"
                         type={showKey ? 'text' : 'password'}
-                        placeholder={typeInfo?.id === 'ollama' ? t('aiProviders.notRequired') : typeInfo?.placeholder}
+                        placeholder={(typeInfo?.id === 'ollama' || typeInfo?.id === 'local-llama') ? t('aiProviders.notRequired') : typeInfo?.placeholder}
                         value={apiKey}
                         onChange={(e) => {
                           setApiKey(e.target.value);

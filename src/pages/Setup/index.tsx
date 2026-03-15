@@ -1018,7 +1018,7 @@ function ProviderContent({
           apiKey,
           {
             baseUrl: baseUrl.trim() || undefined,
-            apiProtocol: (selectedProvider === 'custom' || selectedProvider === 'ollama')
+            apiProtocol: (selectedProvider === 'custom' || selectedProvider === 'ollama' || selectedProvider === 'local-llama')
               ? apiProtocol
               : undefined,
           }
@@ -1054,11 +1054,11 @@ function ProviderContent({
         label: selectedProvider === 'custom'
           ? t('settings:aiProviders.custom')
           : (selectedProviderData?.name || selectedProvider),
-        authMode: selectedProvider === 'ollama'
+        authMode: selectedProvider === 'ollama' || selectedProvider === 'local-llama'
           ? 'local'
           : 'api_key',
         baseUrl: baseUrl.trim() || undefined,
-        apiProtocol: (selectedProvider === 'custom' || selectedProvider === 'ollama')
+        apiProtocol: (selectedProvider === 'custom' || selectedProvider === 'ollama' || selectedProvider === 'local-llama')
           ? apiProtocol
           : undefined,
         model: effectiveModelId,
