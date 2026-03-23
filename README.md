@@ -51,6 +51,14 @@ ClawX comes pre-configured with best-practice model providers and natively suppo
 ## Screenshot
 
 <p align="center">
+  <img src="resources/screenshot/zh/Screenshot 2026-03-23 at 13.24.46.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="resources/screenshot/zh/Screenshot 2026-03-23 at 17.29.05.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
   <img src="resources/screenshot/en/chat.png" style="width: 100%; height: auto;">
 </p>
 
