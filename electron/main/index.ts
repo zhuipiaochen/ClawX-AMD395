@@ -29,6 +29,7 @@ import { deviceOAuthManager } from '../utils/device-oauth';
 import { browserOAuthManager } from '../utils/browser-oauth';
 import { whatsAppLoginManager } from '../utils/whatsapp-login';
 import { syncAllProviderAuthToRuntime } from '../services/providers/provider-runtime-sync';
+import { ensureLocalLlamaProvider, setGatewayManager } from './local-llama-init';
 
 // Disable GPU hardware acceleration globally for maximum stability across
 // all GPU configurations (no GPU, integrated, discrete).
@@ -66,6 +67,7 @@ if (!gotTheLock) {
 // Global references
 let mainWindow: BrowserWindow | null = null;
 const gatewayManager = new GatewayManager();
+setGatewayManager(gatewayManager);
 const clawHubService = new ClawHubService();
 const hostEventBus = new HostEventBus();
 let hostApiServer: Server | null = null;
@@ -164,6 +166,9 @@ async function initialize(): Promise<void> {
   // Apply persisted proxy settings before creating windows or network requests.
   await applyProxySettings();
   await syncLaunchAtStartupSettingFromStore();
+
+  // Ensure local-llama provider exists for out-of-box experience
+  await ensureLocalLlamaProvider();
 
   // Set application menu
   createMenu();

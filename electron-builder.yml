@@ -38,6 +38,8 @@ afterPack: ./scripts/after-pack.cjs
 asar: true
 asarUnpack:
   - "**/*.node"
+  - "**/*.dll"
+  - "**/@node-llama-cpp/**/*"
 
 # Disable native module rebuilding.
 # The Electron renderer/main process has no native (.node) dependencies.
@@ -62,6 +64,8 @@ mac:
   extraResources:
     - from: resources/bin/darwin-${arch}
       to: bin
+    - from: resources/bin/llama.cpp/darwin-${arch}
+      to: bin/llama.cpp
     - from: resources/cli/posix/
       to: cli/
   category: public.app-category.productivity
@@ -106,9 +110,14 @@ win:
   # Skip update signature verification: we ship via OSS + GitHub without a
   # code-signing certificate, so verifying would always fail on the updater.
   verifyUpdateCodeSignature: false
+  cscLink: false
+  forceCodeSigning: false
+  signAndEditExecutable: false
   extraResources:
     - from: resources/bin/win32-${arch}
       to: bin
+    - from: resources/bin/llama.cpp/win32-${arch}
+      to: bin/llama.cpp/win32-${arch}
     - from: resources/cli/win32/
       to: cli/
   icon: resources/icons/icon.ico
@@ -116,7 +125,6 @@ win:
     - target: nsis
       arch:
         - x64
-        - arm64
 
 nsis:
   oneClick: false
@@ -139,6 +147,8 @@ linux:
   extraResources:
     - from: resources/bin/linux-${arch}
       to: bin
+    - from: resources/bin/llama.cpp/linux-${arch}
+      to: bin/llama.cpp
     - from: resources/cli/posix/
       to: cli/
   icon: resources/icons
