@@ -48,6 +48,14 @@ ClawX 预置了最佳实践的模型供应商配置，原生支持 Windows 平�
 ## 截图预览
 
 <p align="center">
+  <img src="resources/screenshot/zh/Screenshot 2026-03-23 at 13.24.46.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <img src="resources/screenshot/zh/Screenshot 2026-03-23 at 17.29.05.png" style="width: 100%; height: auto;">
+</p>
+
+<p align="center">
   <img src="resources/screenshot/zh/chat.png" style="width: 100%; height: auto;">
 </p>
 
