@@ -57,7 +57,7 @@ export function createTray(mainWindow: BrowserWindow): Tray {
   tray = new Tray(icon);
   
   // Set tooltip
-  tray.setToolTip('ClawX - AI Assistant');
+  tray.setToolTip('小龙虾 AMD AC版 - AI Assistant');
   
   const showWindow = () => {
     if (mainWindow.isDestroyed()) return;
@@ -68,7 +68,7 @@ export function createTray(mainWindow: BrowserWindow): Tray {
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show ClawX',
+      label: '显示 小龙虾 AMD AC版',
       click: showWindow,
     },
     {
@@ -130,7 +130,7 @@ export function createTray(mainWindow: BrowserWindow): Tray {
       type: 'separator',
     },
     {
-      label: 'Quit ClawX',
+      label: '退出 小龙虾 AMD AC版',
       click: () => {
         app.quit();
       },
@@ -165,7 +165,7 @@ export function createTray(mainWindow: BrowserWindow): Tray {
  */
 export function updateTrayStatus(status: string): void {
   if (tray) {
-    tray.setToolTip(`ClawX - ${status}`);
+    tray.setToolTip(`小龙虾 AMD AC版 - ${status}`);
   }
 }
 

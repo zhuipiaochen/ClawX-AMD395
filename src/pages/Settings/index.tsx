@@ -1074,6 +1074,9 @@ export function Settings() {
                   {t('about.github')}
                 </Button>
               </div>
+              <p className="pt-4 text-[12px] text-muted-foreground/60">
+                Powered by 元行科技
+              </p>
             </div>
           </div>
 

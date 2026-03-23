@@ -27,18 +27,8 @@ export async function ensureLocalLlamaProvider(): Promise<void> {
 
     if (existingAccount) {
       console.log('[LocalLlama] Provider already exists:', existingAccount.id);
-      
-      const now = new Date().toISOString();
-      const updatedAccount: ProviderAccount = {
-        ...existingAccount,
-        model: 'qwen3.5-0.8b',
-        updatedAt: now,
-      };
-      
-      await saveProviderAccount(updatedAccount);
       await setDefaultProviderAccount(LOCAL_LLAMA_ACCOUNT_ID);
-      
-      console.log('[LocalLlama] Provider updated with new default model:', LOCAL_LLAMA_ACCOUNT_ID);
+      console.log('[LocalLlama] Provider already configured, keeping existing model:', existingAccount.model);
       return;
     }
 

@@ -1,8 +1,8 @@
 {
     "steps": {
         "welcome": {
-            "title": "ClawXへようこそ",
-            "description": "AIアシスタントの設定準備が整いました"
+            "title": "小龙蝦 AMD AI MAX 395 Edition",
+            "description": "Powered by 元行AI · ローカルAIアシスタント"
         },
         "runtime": {
             "title": "環境チェック",
@@ -26,13 +26,13 @@
         }
     },
     "welcome": {
-        "title": "ClawXへようこそ",
-        "description": "ClawXはOpenClawのグラフィカルインターフェースで、お気に入りのメッセージングプラットフォームでAIアシスタントを簡単に使用できます。",
+        "title": "小龙蝦 AMD AI MAX 395 Edition",
+        "description": "Powered by 元行AI · ローカルAIアシスタント",
         "features": {
-            "noCommand": "コマンドライン不要",
-            "modernUI": "モダンで美しいインターフェース",
-            "bundles": "プリインストールされたスキルバンドル",
-            "crossPlatform": "クロスプラットフォーム対応"
+            "noCommand": "🔒 ローカルAI · プライバシー保護",
+            "modernUI": "💰 コスト削減 · クラウドAPI不要",
+            "bundles": "🤖 Agent Computer · スマートアシスタント",
+            "crossPlatform": "⚡ AMD最適化 · 深いパフォーマンスチューン"
         }
     },
     "runtime": {

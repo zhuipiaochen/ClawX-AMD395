@@ -127,6 +127,7 @@ function createWindow(): BrowserWindow {
   // Show window when ready to prevent visual flash
   win.once('ready-to-show', () => {
     win.show();
+    win.setTitle('小龙虾 AMD AC版');
   });
 
   // Handle external links

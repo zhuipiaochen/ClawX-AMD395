@@ -3,10 +3,14 @@
   <img src="src/assets/logo.svg" width="128" height="128" alt="ClawX Logo" />
 </p>
 
-<h1 align="center">ClawX</h1>
+<h1 align="center">小龙虾 AMD AI MAX 395</h1>
 
 <p align="center">
-  <strong>The Desktop Interface for OpenClaw AI Agents</strong>
+  <strong>基于 ClawX 的 AMD AI MAX 395 本地推理专版 — 保护隐私 · 节约成本</strong>
+</p>
+
+<p align="center">
+  基于 <a href="https://github.com/ValueCell-ai/ClawX">ClawX</a> 专为 AMD AI MAX 395 打造，集成 llama.cpp 本地推理，支持 Agent Computer，保护隐私，节约 API 成本。
 </p>
 
 <p align="center">

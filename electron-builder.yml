@@ -1,6 +1,6 @@
 appId: app.clawx.desktop
-productName: ClawX
-copyright: Copyright © 2026 ClawX
+productName: 小龙虾 AMD AC版
+copyright: Copyright © 2026 元行科技
 compression: maximum
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 

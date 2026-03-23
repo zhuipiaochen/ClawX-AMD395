@@ -1,8 +1,8 @@
 {
     "steps": {
         "welcome": {
-            "title": "欢迎使用 ClawX",
-            "description": "您的 AI 助手已准备好进行配置"
+            "title": "小龙虾 AMD AI MAX 395 专属版",
+            "description": "Powered by 元行AI · 本地化 AI 助手"
         },
         "runtime": {
             "title": "环境检查",
@@ -26,13 +26,13 @@
         }
     },
     "welcome": {
-        "title": "欢迎使用 ClawX",
-        "description": "ClawX 是 OpenClaw 的图形界面，让您可以在喜爱的消息平台上轻松使用 AI 助手。",
+        "title": "小龙虾 AMD AI MAX 395 专属版",
+        "description": "Powered by 元行AI · 本地化 AI 助手",
         "features": {
-            "noCommand": "无需命令行",
-            "modernUI": "现代美观的界面",
-            "bundles": "预装技能包",
-            "crossPlatform": "跨平台支持"
+            "noCommand": "🔒 本地化 AI · 保护隐私",
+            "modernUI": "💰 节约成本 · 无需云端 API",
+            "bundles": "🤖 Agent Computer · 智能助手",
+            "crossPlatform": "⚡ AMD 优化 · 深度性能调优"
         }
     },
     "runtime": {
