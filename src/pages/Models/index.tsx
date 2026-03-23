@@ -48,13 +48,11 @@ export function Models() {
 
   const [engineStatus, setEngineStatus] = useState<EngineStatus>({ running: false, engineAvailable: false });
   const [localModels, setLocalModels] = useState<ModelInfo[]>([]);
-  const [recommendedModels, setRecommendedModels] = useState<ModelInfo[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<ModelInfo[]>([]);
-  const [searching, setSearching] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [recommendedModels, setRecommendedModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState<string | null>(null);
 
   const [usageHistory, setUsageHistory] = useState<UsageHistoryEntry[]>([]);
   const [usageGroupBy, setUsageGroupBy] = useState<UsageGroupBy>('model');
@@ -100,13 +98,11 @@ export function Models() {
         setUsagePage(1);
         trackUiEvent('models.token_usage_fetch_succeeded', { generation, attempt, records: normalized.length, restartMarker });
 
-        if (normalized.length === 0 && attempt < usageFetchMaxAttempts) {
+        if (normalized.length === 0 && attempt < 3) {
           trackUiEvent('models.token_usage_fetch_retry_scheduled', { generation, attempt, reason: 'empty', restartMarker });
           usageFetchTimerRef.current = setTimeout(() => {
             void fetchUsageHistoryWithRetry(attempt + 1);
           }, 1500);
-        } else if (normalized.length === 0) {
-          trackUiEvent('models.token_usage_fetch_exhausted', { generation, attempt, reason: 'empty', restartMarker });
         }
       } catch (error) {
         trackUiEvent('models.token_usage_fetch_failed', { generation, attempt, restartMarker, error: String(error) });
@@ -130,14 +126,20 @@ export function Models() {
   const loadLocalData = async () => {
     setLoading(true);
     try {
+      console.log('[Models] Initializing inference...');
       await hostApiFetch('/api/inference/initialize', { method: 'POST' });
 
+      console.log('[Models] Fetching status, local models, recommended models...');
       const [statusRes, localRes, recommendedRes] = await Promise.all([
         hostApiFetch('/api/inference/status') as Promise<{ success: boolean; data: EngineStatus }>,
         hostApiFetch('/api/inference/models/local') as Promise<{ success: boolean; data: ModelInfo[] }>,
         hostApiFetch('/api/inference/models/recommended') as Promise<{ success: boolean; data: ModelInfo[] }>
       ]);
 
+      console.log('[Models] Status:', statusRes.data);
+      console.log('[Models] Local models:', localRes.data);
+      console.log('[Models] Recommended models:', recommendedRes.data);
+      
       setEngineStatus(statusRes.data);
       setLocalModels(localRes.data || []);
       setRecommendedModels(recommendedRes.data || []);
@@ -148,61 +150,69 @@ export function Models() {
     }
   };
 
-  const searchModels = async () => {
-    if (!searchQuery.trim()) return;
-
-    console.log('Searching for:', searchQuery);
-    setSearching(true);
-    try {
-      const results = await hostApiFetch(`/api/inference/models/search?q=${encodeURIComponent(searchQuery)}`) as { success: boolean; data: ModelInfo[] };
-      console.log('Search results:', results);
-      setSearchResults(results.data || []);
-    } catch (error) {
-      console.error('Search failed:', error);
-    } finally {
-      setSearching(false);
-    }
-  };
-
   const downloadModel = async (modelId: string, modelName: string) => {
     setDownloading(modelId);
     setDownloadProgress(0);
 
-    const progressInterval = setInterval(() => {
-      setDownloadProgress(prev => Math.min(prev + 5, 90));
-    }, 500);
-
     try {
-      await hostApiFetch(`/api/inference/models/download/${modelId}`, { method: 'POST' });
-      clearInterval(progressInterval);
+      const result = await hostApiFetch(`/api/inference/models/download/${modelId}`, { method: 'POST' }) as { success: boolean; error?: string };
+      
+      console.log('Download result:', result);
+      
+      if (!result.success) {
+        console.error('Download failed:', result.error);
+        alert(`下载失败: ${result.error}\n\n模型ID: ${modelId}`);
+        setDownloadProgress(0);
+        return;
+      }
+      
       setDownloadProgress(100);
       await loadLocalData();
     } catch (error) {
-      clearInterval(progressInterval);
       console.error('Download failed:', error);
+      alert(`下载失败: ${error}\n\n模型ID: ${modelId}`);
     } finally {
       setTimeout(() => {
         setDownloading(null);
         setDownloadProgress(0);
-      }, 1000);
+      }, 500);
     }
   };
 
   const deleteModel = async (modelId: string) => {
+    const model = recommendedModels.find(m => m.id === modelId);
+    const modelName = model?.name || modelId;
+    
+    const confirmed = window.confirm(`确定要删除模型 "${modelName}" 吗？此操作不可撤销。`);
+    if (!confirmed) {
+      return;
+    }
+
     try {
+      if (engineStatus.running && engineStatus.modelId === modelId) {
+        await stopEngine();
+      }
       await hostApiFetch(`/api/inference/models/${modelId}`, { method: 'DELETE' });
       await loadLocalData();
     } catch (error) {
       console.error('Delete failed:', error);
+      alert(`删除模型失败: ${error}`);
     }
   };
 
   const startEngine = async (modelId: string) => {
     try {
+      setStarting(modelId);
+      if (engineStatus.running && engineStatus.modelId !== modelId) {
+        await stopEngine();
+      }
       await hostApiFetch('/api/inference/start', { method: 'POST', body: JSON.stringify({ modelId }) });
       await loadLocalData();
     } catch (error) {
       console.error('Start failed:', error);
+      alert(`启动模型失败: ${error}`);
+    } finally {
+      setStarting(null);
     }
   };
 
@@ -309,10 +319,12 @@ export function Models() {
                             <span className={engineStatus.engineAvailable ? 'text-green-600' : 'text-red-600'}>
                               {engineStatus.engineAvailable ? t('models.local.installed', '已安装') : t('models.local.notInstalled', '未安装')}
                             </span>
+                            <span className="text-xs text-gray-400">(engineAvailable={String(engineStatus.engineAvailable)})</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span>{t('models.local.model', '模型')}:</span>
-                            <span>{localModels.length > 0 ? localModels[0].name : t('models.local.noModel', '未下载')}</span>
+                            <span>{engineStatus.running ? engineStatus.modelName : (localModels.length > 0 ? t('models.local.notStarted', '未启动') : t('models.local.noModel', '未下载'))}</span>
+                            <span className="text-xs text-gray-400">(count={localModels.length})</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span>{t('models.local.status', '状态')}:</span>
@@ -321,23 +333,6 @@ export function Models() {
                             </span>
                           </div>
                         </div>
-                        <Button
-                          className={engineStatus.running ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}
-                          onClick={() => engineStatus.running ? stopEngine() : startEngine(localModels[0]?.id || '')}
-                          disabled={!engineStatus.engineAvailable || (localModels.length === 0 && !engineStatus.running)}
-                        >
-                          {engineStatus.running ? (
-                            <>
-                              <Square className="h-4 w-4 mr-2" />
-                              {t('models.local.stop', '停止')}
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4 mr-2" />
-                              {t('models.local.start', '一键启动')}
-                            </>
-                          )}
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -355,9 +350,24 @@ export function Models() {
                     </Card>
                   )}
 
-                  {/* Recommended Models */}
+                  {/* Starting Progress */}
+                  {starting && (
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+                          <div className="flex-1">
+                            <div className="font-medium">{t('models.local.starting', '启动中...')}</div>
+                            <div className="text-sm text-gray-500">{starting}</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Model List */}
                   <div>
-                    <h2 className="text-xl font-medium mb-4">{t('models.local.recommended', '⭐ 推荐模型')}</h2>
+                    <h2 className="text-xl font-medium mb-4">{t('models.local.modelList', '📋 模型列表')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {recommendedModels.map(model => (
                         <Card key={model.id}>
@@ -371,10 +381,41 @@ export function Models() {
                             </div>
                             <div className="flex gap-2">
                               {localModels.some(m => m.id === model.id) ? (
-                                <Button size="sm" variant="secondary" disabled>
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  {t('models.local.downloaded', '已下载')}
-                                </Button>
+                                <>
+                                  {engineStatus.modelId === model.id && engineStatus.running ? (
+                                    <Button size="sm" variant="destructive" onClick={() => stopEngine()}>
+                                      <Square className="h-4 w-4 mr-1" />
+                                      {t('models.local.stop', '停止')}
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      size="sm"
+                                      onClick={() => startEngine(model.id)} 
+                                      disabled={!engineStatus.engineAvailable || !!starting}
+                                    >
+                                      {starting === model.id ? (
+                                        <>
+                                          <div className="animate-spin h-4 w-4 mr-1 border-2 border-white border-t-transparent rounded-full" />
+                                          {t('models.local.starting', '启动中...')}
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Play className="h-4 w-4 mr-1" />
+                                          {t('models.local.start', '启动')}
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={() => deleteModel(model.id)}
+                                    disabled={!!starting || (engineStatus.modelId === model.id && engineStatus.running)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    {t('models.local.delete', '删除')}
+                                  </Button>
+                                </>
                               ) : (
                                 <Button size="sm" onClick={() => downloadModel(model.id, model.name)} disabled={!!downloading}>
                                   <Download className="h-4 w-4 mr-1" />
@@ -387,86 +428,6 @@ export function Models() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Search */}
-                  <div>
-                    <h2 className="text-xl font-medium mb-4">{t('models.local.search', '🔍 搜索 HuggingFace')}</h2>
-                    <div className="flex gap-2 mb-4">
-                      <Input
-                        placeholder={t('models.local.searchPlaceholder', '输入模型名称...')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && searchModels()}
-                        className="flex-1 h-10 rounded-xl bg-white dark:bg-white/10 border border-input"
-                      />
-                      <Button onClick={searchModels} disabled={searching}>
-                        <Search className="h-4 w-4 mr-2" />
-                        {searching ? t('models.local.searching', '搜索中...') : t('models.local.search', '搜索')}
-                      </Button>
-                    </div>
-
-                    {searchResults.length > 0 && (
-                      <div className="space-y-2">
-                        {searchResults.map(model => (
-                          <Card key={model.id}>
-                            <CardContent className="p-4 flex items-center justify-between">
-                              <div>
-                                <div className="font-medium">{model.name}</div>
-                                <div className="text-sm text-gray-500">{model.description}</div>
-                              </div>
-                              <Button size="sm" onClick={() => downloadModel(model.id, model.name)} disabled={!!downloading}>
-                                <Download className="h-4 w-4 mr-1" />
-                                {t('models.local.download', '下载')}
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Local Models */}
-                  {localModels.length > 0 && (
-                    <div>
-                      <h2 className="text-xl font-medium mb-4">{t('models.local.localModels', '📁 本地模型')} ({localModels.length})</h2>
-                      <div className="space-y-2">
-                        {localModels.map(model => (
-                          <Card key={model.id}>
-                            <CardContent className="p-4 flex items-center justify-between">
-                              <div>
-                                <div className="font-medium flex items-center gap-2">
-                                  {model.name}
-                                  {engineStatus.modelId === model.id && engineStatus.running && (
-                                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">
-                                      {t('models.local.running', '运行中')}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-sm text-gray-500">{formatSize(model.size)}</div>
-                              </div>
-                              <div className="flex gap-2">
-                                {engineStatus.modelId === model.id && engineStatus.running ? (
-                                  <Button size="sm" variant="destructive" onClick={stopEngine}>
-                                    <Square className="h-4 w-4 mr-1" />
-                                    {t('models.local.stop', '停止')}
-                                  </Button>
-                                ) : (
-                                  <Button size="sm" onClick={() => startEngine(model.id)} disabled={!engineStatus.engineAvailable}>
-                                    <Play className="h-4 w-4 mr-1" />
-                                    {t('models.local.start', '启动')}
-                                  </Button>
-                                )}
-                                <Button size="sm" variant="destructive" onClick={() => deleteModel(model.id)}>
-                                  <Trash2 className="h-4 w-4 mr-1" />
-                                  {t('models.local.delete', '删除')}
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>

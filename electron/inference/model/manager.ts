@@ -41,10 +41,27 @@ export class ModelManager {
     return `${modelId}.gguf`;
   }
 
-  public getModelPath(modelId: string): string {
+  public async getModelPath(modelId: string): Promise<string> {
     const modelDir = this.getModelDir(modelId);
     const filename = this.getModelFilename(modelId);
-    return path.join(modelDir, filename);
+    const fullPath = path.join(modelDir, filename);
+    
+    try {
+      await fs.access(fullPath);
+      return fullPath;
+    } catch {
+      try {
+        const files = await fs.readdir(modelDir);
+        const ggufFile = files.find(f => f.endsWith('.gguf') && !f.includes('mmproj'));
+        if (ggufFile) {
+          return path.join(modelDir, ggufFile);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    
+    return fullPath;
   }
 
   public async initialize(): Promise<void> {
@@ -56,7 +73,7 @@ export class ModelManager {
   }
 
   public async isModelDownloaded(id: string): Promise<boolean> {
-    const modelPath = this.getModelPath(id);
+    const modelPath = await this.getModelPath(id);
     try {
       const stats = await fs.stat(modelPath);
       return stats.isFile() && stats.size > 0;
@@ -70,7 +87,7 @@ export class ModelManager {
     downloadUrl: string,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<string> {
-    const modelPath = this.getModelPath(modelId);
+    const modelPath = await this.getModelPath(modelId);
     const modelDir = this.getModelDir(modelId);
     console.log('[Download] Starting download:', modelId, 'URL:', downloadUrl);
     console.log('[Download] Model path:', modelPath);
@@ -81,7 +98,9 @@ export class ModelManager {
     console.log('[Download] Response status:', response.status, response.statusText);
     
     if (!response.ok) {
-      throw new Error(`Failed to download: ${response.statusText}`);
+      const errorText = await response.text().catch(() => '');
+      console.error('[Download] Error response:', errorText);
+      throw new Error(`Failed to download: ${response.status} ${response.statusText}. ${errorText}`);
     }
 
     const total = parseInt(response.headers.get('content-length') || '0');
@@ -123,6 +142,8 @@ export class ModelManager {
     try {
       await fs.access(this.baseDir);
       const modelDirs = await fs.readdir(this.baseDir);
+      console.log('[ModelManager] Scanning models directory:', this.baseDir);
+      console.log('[ModelManager] Found directories:', modelDirs);
 
       for (const dir of modelDirs) {
         const dirPath = path.join(this.baseDir, dir);
@@ -131,6 +152,9 @@ export class ModelManager {
         if (stats.isDirectory()) {
           const files = await fs.readdir(dirPath);
           const ggufFiles = files.filter(f => f.endsWith('.gguf'));
+          
+          console.log(`[ModelManager] [${dir}] files:`, files);
+          console.log(`[ModelManager] [${dir}] ggufFiles:`, ggufFiles);
           
           if (ggufFiles.length > 0) {
             let modelId = dir;
@@ -141,7 +165,9 @@ export class ModelManager {
               modelId = mainFile.replace('.gguf', '');
               isVlm = ggufFiles.some(f => f.includes('mmproj'));
             }
-
+            
+            console.log(`[ModelManager] [${dir}] modelId: ${modelId}, isVlm: ${isVlm}, mainFile: ${mainFile}`);
+            
             const mainFilePath = path.join(dirPath, mainFile);
             const fileStats = await fs.stat(mainFilePath);
 
@@ -155,6 +181,8 @@ export class ModelManager {
           }
         }
       }
+      
+      console.log('[ModelManager] Local models found:', localModels.map(m => ({ id: m.id, name: m.name })));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         console.error('Failed to get local models:', error);
@@ -166,17 +194,15 @@ export class ModelManager {
 
   public async searchModels(query: string): Promise<ModelInfo[]> {
     try {
-      const response = await fetch(`https://huggingface.co/api/models?search=${encodeURIComponent(query)}&filter=gguf&sort=downloads&direction=-1&limit=10`);
+      const response = await fetch(`https://hf-mirror.com/api/models?search=${encodeURIComponent(query)}&filter=gguf&sort=downloads&direction=-1&limit=10`);
       if (!response.ok) {
         throw new Error(`Search failed: ${response.statusText}`);
       }
-
       const data = await response.json() as Array<{
         id: string;
         model_id: string;
         downloads: number;
       }>;
-
       return data.map(item => ({
         id: item.model_id.replace('/', '-'),
         name: item.model_id,
@@ -193,46 +219,48 @@ export class ModelManager {
   public getRecommendedModels(): ModelInfo[] {
     return [
       {
-        id: 'Qwen3.5-32B-Q4_K_M',
-        name: 'Qwen3.5-32B',
-        description: '⭐ 推荐 | ~20GB | 纯文本模型 | AMD 395推荐',
-        size: 20 * 1024 * 1024 * 1024,
-        url: 'https://hf-mirror.com/Qwen/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf',
-        isVlm: false
-      },
-      {
         id: 'Qwen3.5-35B-A3B-Q4_K_M',
         name: 'Qwen3.5-35B-A3B',
-        description: 'VLM | ~22GB | 支持图片 | 需要mmproj',
+        description: '⭐ AMD 395推荐 | VLM模型 | ~22GB',
         size: 22 * 1024 * 1024 * 1024,
         url: 'https://hf-mirror.com/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q4_K_M.gguf',
         mmprojUrl: 'https://hf-mirror.com/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/mmproj-F16.gguf',
         isVlm: true
       },
       {
-        id: 'Qwen3.5-14B-Q4_K_M',
-        name: 'Qwen3.5-14B',
-        description: '~9GB | 纯文本模型 | 快速',
-        size: 9 * 1024 * 1024 * 1024,
-        url: 'https://hf-mirror.com/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf',
-        isVlm: false
+        id: 'Qwen3.5-4B-Q4_K_M',
+        name: 'Qwen3.5-4B',
+        description: 'VLM模型 | ~3GB',
+        size: 3 * 1024 * 1024 * 1024,
+        url: 'https://hf-mirror.com/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
+        mmprojUrl: 'https://hf-mirror.com/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf',
+        isVlm: true
       },
       {
-        id: 'Qwen3.5-8B-Q4_K_M',
-        name: 'Qwen3.5-8B',
-        description: '~5GB | 纯文本模型 | 最快',
-        size: 5 * 1024 * 1024 * 1024,
-        url: 'https://hf-mirror.com/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf',
-        isVlm: false
+        id: 'Qwen3.5-2B-Q4_K_M',
+        name: 'Qwen3.5-2B',
+        description: 'VLM模型 | ~2GB',
+        size: 2 * 1024 * 1024 * 1024,
+        url: 'https://hf-mirror.com/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
+        mmprojUrl: 'https://hf-mirror.com/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf',
+        isVlm: true
       },
       {
-        id: 'Qwen3.5-0.8B-Q4_0',
+        id: 'Qwen3.5-0.8B-Q4_K_M',
         name: 'Qwen3.5-0.8B',
-        description: 'VLM | ~1GB | 支持图片 | 需要mmproj',
+        description: 'VLM模型 | ~1GB',
         size: 1 * 1024 * 1024 * 1024,
-        url: 'https://hf-mirror.com/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf',
+        url: 'https://hf-mirror.com/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf',
         mmprojUrl: 'https://hf-mirror.com/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf',
         isVlm: true
+      },
+      {
+        id: 'Qwen3-0.6B-Q4_K_M',
+        name: 'Qwen3-0.6B',
+        description: 'LLM模型 | ~400MB | 无需mmproj',
+        size: 400 * 1024 * 1024,
+        url: 'https://hf-mirror.com/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf',
+        isVlm: false
       }
     ];
   }

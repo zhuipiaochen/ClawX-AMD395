@@ -27,13 +27,13 @@ export class EngineManager {
 
   constructor() {
     this.config = {
-      port: 8080,
-      host: 'localhost',
-      modelPath: '',
+      port: 18432,
+      host: '127.0.0.1',
       gpuLayers: 99,
       threads: 4,
-      contextSize: 32768
+      contextSize: 194000
     };
+    console.log('[EngineManager] Constructor initialized with config:', JSON.stringify(this.config));
 
     const isDev = !app.isPackaged;
     const baseDir = isDev 
@@ -59,7 +59,13 @@ export class EngineManager {
   }
 
   public setConfig(config: Partial<EngineConfig>): void {
+    const oldConfig = { ...this.config };
     this.config = { ...this.config, ...config };
+    console.log('[EngineManager] Config updated:', {
+      old: oldConfig,
+      new: this.config,
+      changes: config
+    });
   }
 
   public getConfig(): EngineConfig {
@@ -68,7 +74,8 @@ export class EngineManager {
 
   public async start(modelPath: string, modelId: string, mmprojPath?: string): Promise<void> {
     if (this.process) {
-      throw new Error('Engine is already running');
+      console.log('[EngineManager] Engine is already running, stopping it first...');
+      await this.stop();
     }
 
     if (!modelPath) {
@@ -83,49 +90,92 @@ export class EngineManager {
     console.log('[EngineManager] Model ID:', modelId);
     console.log('[EngineManager] Model path:', modelPath);
     console.log('[EngineManager] MMProj path:', mmprojPath);
+    console.log('[EngineManager] Config:', JSON.stringify(this.config));
+    console.log('[EngineManager] Full config:', {
+      port: this.config.port,
+      host: this.config.host,
+      contextSize: this.config.contextSize,
+      threads: this.config.threads,
+      gpuLayers: this.config.gpuLayers
+    });
 
     const args = [
       '-m', modelPath,
       '--port', this.config.port.toString(),
       '--host', this.config.host,
-      '-c', this.config.contextSize.toString(),
-      '-t', this.config.threads.toString(),
       '-ngl', this.config.gpuLayers.toString(),
-      '--log-disable'
+      '--ctx-size', this.config.contextSize.toString(),
+      '--flash-attn', 'on',
+      '--no-warmup'
     ];
+    if (this.config.threads > 0) {
+      args.push('-t', this.config.threads.toString());
+    }
+    console.log('[EngineManager] Full command arguments:', args);
 
     if (mmprojPath) {
       args.push('--mmproj', mmprojPath);
     }
 
-    console.log('Starting llama-server:', this.serverPath, args);
-    console.log('Model path:', modelPath);
+    console.log('[EngineManager] Starting llama-server:', this.serverPath);
+    console.log('[EngineManager] Args:', args.join(' '));
+    console.log('[EngineManager] Model path:', modelPath);
 
-    this.process = spawn(this.serverPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-      shell: false,
-      cwd: path.dirname(this.serverPath)
-    });
+    try {
+      this.process = spawn(this.serverPath, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+        shell: false,
+        cwd: path.dirname(this.serverPath)
+      });
 
-    this.process.stdout?.on('data', (data) => {
-      console.log('[llama-server stdout]:', data.toString().trim());
-    });
+      this.process.stdout?.on('data', (data) => {
+        const msg = data.toString().trim();
+        console.log('[llama-server stdout]:', msg);
+        
+        if (msg.includes('llama server listening') || msg.includes('server started')) {
+          console.log('[EngineManager] SUCCESS: llama-server started successfully!');
+          console.log('[EngineManager] Model loaded, port is now listening');
+        }
+      });
 
-    this.process.stderr?.on('data', (data) => {
-      console.error('[llama-server stderr]:', data.toString().trim());
-    });
+      this.process.stderr?.on('data', (data) => {
+        const errorMsg = data.toString().trim();
+        console.error('[llama-server stderr]:', errorMsg);
+        
+        if (errorMsg.toLowerCase().includes('out of memory') || errorMsg.toLowerCase().includes('oom')) {
+          console.error('[EngineManager] FATAL: Out of memory error detected!');
+          throw new Error('内存不足，无法加载此模型。请尝试：\n1. 减少GPU层数（当前：99）\n2. 减少上下文大小（当前：194000）\n3. 关闭其他占用内存的程序\n4. 升级系统内存');
+        }
+        
+        if (errorMsg.toLowerCase().includes('failed to mmap') || errorMsg.toLowerCase().includes('cannot allocate')) {
+          console.error('[EngineManager] FATAL: Memory allocation error detected!');
+          throw new Error('内存分配失败，无法加载此模型。请检查系统内存和GPU显存是否充足。');
+        }
+      });
+      
+      this.process.on('exit', (code, signal) => {
+        console.log('[EngineManager] llama-server exited!');
+        console.log('[EngineManager] Exit code:', code);
+        console.log('[EngineManager] Exit signal:', signal);
+        console.log('[EngineManager] Current status:', this.getStatus());
+        console.log('[EngineManager] Process was running:', !!this.process);
+        this.process = null;
+      }, { once: true });
 
-    this.process.on('exit', (code) => {
-      console.log('llama-server exited with code:', code);
+      this.process.on('error', (error) => {
+        console.error('[EngineManager] llama-server process error:', error);
+        console.error('[EngineManager] Error code:', (error as NodeJS.ErrnoException).code);
+        console.error('[EngineManager] Error message:', error.message);
+        this.process = null;
+      }, { once: true });
+
+      await this.waitForServer(60000);
+    } catch (error) {
+      console.error('[EngineManager] Failed to start engine:', error);
       this.process = null;
-    });
-
-    this.process.on('error', (error) => {
-      console.error('llama-server process error:', error);
-    });
-
-    await this.waitForServer(15000);
+      throw error;
+    }
   }
 
   private async waitForServer(timeout: number): Promise<void> {

@@ -243,7 +243,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     icon: '💻',
     placeholder: 'Not required',
     requiresApiKey: false,
-    defaultBaseUrl: 'http://localhost:8080/v1',
+    defaultBaseUrl: 'http://localhost:18432/v1',
     showBaseUrl: true,
     showModelId: true,
     modelIdPlaceholder: 'qwen3.5-0.8b',
@@ -252,7 +252,7 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     defaultAuthMode: 'local',
     supportsMultipleAccounts: true,
     providerConfig: {
-      baseUrl: 'http://localhost:8080/v1',
+      baseUrl: 'http://localhost:18432/v1',
       api: 'openai-completions',
     },
   },

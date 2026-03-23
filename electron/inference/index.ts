@@ -21,7 +21,7 @@ export class InferenceManager extends EventEmitter {
     this.modelManager = new ModelManager();
     this.engineManager = new EngineManager();
     this.config = {
-      port: 8080,
+      port: 18432,
       host: 'localhost',
       modelId: ''
     };
@@ -44,23 +44,34 @@ export class InferenceManager extends EventEmitter {
   }
 
   public async start(modelId: string): Promise<void> {
-    const modelPath = this.modelManager.getModelPath(modelId);
-    const isDownloaded = await this.modelManager.isModelDownloaded(modelId);
+    const recommendedModels = this.modelManager.getRecommendedModels();
+    console.log('[Inference] Recommended models:', recommendedModels.map(m => m.id));
+    const modelInfo = recommendedModels.find(m => m.id === modelId);
+    console.log('[Inference] Model info for', modelId, ':', modelInfo);
 
+    let modelPath: string;
+    let mmprojPath: string | undefined;
+
+    modelPath = await this.modelManager.getModelPath(modelId);
+
+    const isDownloaded = await this.modelManager.isModelDownloaded(modelId);
     if (!isDownloaded) {
       throw new Error('Model not downloaded. Please download it first.');
     }
 
-    const recommendedModels = this.modelManager.getRecommendedModels();
-    const modelInfo = recommendedModels.find(m => m.id === modelId);
-    let mmprojPath: string | undefined;
-
     if (modelInfo?.isVlm && modelInfo.mmprojUrl) {
-      mmprojPath = this.modelManager.getModelPath(`${modelId}-mmproj`);
-      const mmprojDownloaded = await this.modelManager.isModelDownloaded(`${modelId}-mmproj`);
+      console.log('[Inference] Model is VLM, checking mmproj...');
+      const mmprojModelId = `${modelId}-mmproj`;
+      console.log('[Inference] MMProj model ID:', mmprojModelId);
+      mmprojPath = await this.modelManager.getModelPath(mmprojModelId);
+      console.log('[Inference] MMProj path:', mmprojPath);
+      const mmprojDownloaded = await this.modelManager.isModelDownloaded(mmprojModelId);
+      console.log('[Inference] MMProj downloaded:', mmprojDownloaded);
       if (!mmprojDownloaded) {
         throw new Error('VLM model requires mmproj. Please download it first.');
       }
+    } else {
+      console.log('[Inference] Model is not VLM or no mmproj URL');
     }
 
     await this.engineManager.start(modelPath, modelId, mmprojPath);
